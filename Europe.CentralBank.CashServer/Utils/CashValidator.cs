@@ -21,7 +21,11 @@ namespace Europe.CentralBank.CashServer.Utils {
             var part = string.Join(".", stuff.Take(stuff.Length - 1));
             var signature = stuff.Last();
 
-            key.Rsa.SignHash(System.Text.Encoding.ASCII.GetBytes(part), HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+            if (!key.Rsa.VerifyData(Encoding.ASCII.GetBytes(str), Convert.FromBase64String(signature),
+                HashAlgorithmName.SHA256,
+                RSASignaturePadding.Pkcs1)) {
+                throw new Exception("no signature");
+            }
 
             return new Cash() {
                 id = Int32.Parse(stuff[0]),
@@ -34,6 +38,8 @@ namespace Europe.CentralBank.CashServer.Utils {
         public string CashToString(Cash cash) {
             var str = $"{cash.amount}.{cash.id}.{cash.created_at}";
 
+            var a = key.Rsa.SignData(Encoding.ASCII.GetBytes(str), HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+            str += "." + Convert.ToBase64String(a);
 
             return str;
         }
