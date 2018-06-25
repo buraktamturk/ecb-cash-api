@@ -9,9 +9,9 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace Europe.CentralBank.CashServer.Utils {
     public class CashValidator {
-        private RsaSecurityKey key;
+        private RSACryptoServiceProvider key;
         
-        public CashValidator(RsaSecurityKey key) {
+        public CashValidator(RSACryptoServiceProvider key) {
             this.key = key;
         }
 
@@ -21,15 +21,15 @@ namespace Europe.CentralBank.CashServer.Utils {
             var part = string.Join(".", stuff.Take(stuff.Length - 1));
             var signature = stuff.Last();
 
-            if (!key.Rsa.VerifyData(Encoding.ASCII.GetBytes(str), Convert.FromBase64String(signature),
+            if (!key.VerifyData(Encoding.ASCII.GetBytes(part), Convert.FromBase64String(signature),
                 HashAlgorithmName.SHA256,
                 RSASignaturePadding.Pkcs1)) {
                 throw new Exception("no signature");
             }
 
             return new Cash() {
-                id = Int32.Parse(stuff[0]),
-                amount = Int32.Parse(stuff[1]),
+                id = Int32.Parse(stuff[1]),
+                amount = Int32.Parse(stuff[0]),
                 created_at = DateTimeOffset.Parse(stuff[2]),
                 data = str
             };
@@ -38,7 +38,7 @@ namespace Europe.CentralBank.CashServer.Utils {
         public string CashToString(Cash cash) {
             var str = $"{cash.amount}.{cash.id}.{cash.created_at}";
 
-            var a = key.Rsa.SignData(Encoding.ASCII.GetBytes(str), HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+            var a = key.SignData(Encoding.ASCII.GetBytes(str), HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
             str += "." + Convert.ToBase64String(a);
 
             return str;

@@ -6,6 +6,7 @@ using System.Linq.Expressions;
 using System.Threading.Tasks;
 using Europe.CentralBank.CashServer.Models;
 using Europe.CentralBank.CashServer.Utils;
+using LinqKit;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Europe.CentralBank.CashServer.Controllers {
@@ -42,7 +43,7 @@ namespace Europe.CentralBank.CashServer.Controllers {
             id = a.id,
             amount = a.amount,
             created_at = a.created_at,
-            invalidated_at = a.invalidated_by.DefaultIfEmpty().Min(b => b.cash.created_at)
+            invalidated_at = a.invalidated_by.Select(b => b.cash.created_at).DefaultIfEmpty().Min()
         };
 
         [HttpGet("cash/{id}")]
@@ -65,7 +66,7 @@ namespace Europe.CentralBank.CashServer.Controllers {
             }
 
             cashs = await db.cashs
-                .Where(a => cash_ids.Contains(a.id))
+                .Where(a => cash_ids.Contains(a.id) && !a.invalidated_by.Any())
                 .ToListAsync();
 
             if (cashs.Count != cashRequest.cashs.Count) {
@@ -81,7 +82,9 @@ namespace Europe.CentralBank.CashServer.Controllers {
                 var cash = new cash {
                     amount = amount,
                     created_at = DateTimeOffset.UtcNow,
-                    digital = true
+                    digital = true,
+                    invalidated_by = new List<cash_invalidation>(),
+                    invalidates = cash_ids.Select(a => new cash_invalidation() { invalidated_cash_id = a }).ToList()
                 };
 
                 out_cash.Add(cash);
@@ -94,6 +97,21 @@ namespace Europe.CentralBank.CashServer.Controllers {
                 .Select(CashController.cash.Compile())
                 .Select(a => cashValidator.CashToString(a))
                 .ToList();
+        }
+
+        [HttpGet("test_money")]
+        public async Task<string> test_money(int amount = 50) {
+            var cash = new cash {
+                amount = amount,
+                created_at = DateTimeOffset.UtcNow,
+                digital = true,
+                invalidated_by = new List<cash_invalidation>()
+            };
+        
+            db.cashs.Add(cash);
+            await db.SaveChangesAsync();
+
+            return cashValidator.CashToString(CashController.cash.Invoke(cash));
         }
     }
 }

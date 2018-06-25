@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
+using Newtonsoft.Json;
 
 namespace Europe.CentralBank.CashServer {
     public class Startup {
@@ -29,20 +30,22 @@ namespace Europe.CentralBank.CashServer {
         public void ConfigureServices(IServiceCollection services) {
             RsaSecurityKey _key;
 
-            using (RSACryptoServiceProvider rsaKey = new RSACryptoServiceProvider()) {
+           // using (
+            RSACryptoServiceProvider rsaKey = new RSACryptoServiceProvider();
+                //) {
                 rsaKey.FromXmlString(_config["jwt"]);
-
+                
                 _key = new RsaSecurityKey(rsaKey.ExportParameters(true));
+                services.AddSingleton(rsaKey);
                 services.AddSingleton(_key);
                 services.AddSingleton(new SigningCredentials(_key, SecurityAlgorithms.RsaSha256Signature));
-            }
+         //   }
             
             var databaseConnectionString = _config["database"];
 
             Database.SetInitializer(new MigrateDatabaseToLatestVersion<ApplicationDbContext, Migrations.Configuration>(true));
             
             services
-                .AddSingleton(_key)
                 .AddSingleton<CashValidator>()
                 .AddScoped(a => new ApplicationDbContext(databaseConnectionString))
                 .AddCors()
@@ -56,6 +59,27 @@ namespace Europe.CentralBank.CashServer {
             }
 
             app
+                .Use(async (context, next) => {
+                    try {
+                        await next();
+                    } catch (Exception e) {
+                        context.Response.StatusCode = e is NotImplementedException ? 404 : e is UnauthorizedAccessException || e is SecurityTokenValidationException ? 401 : e is ArgumentException ? 400 : 500;
+                        context.Response.ContentType = "application/json; charset=utf-8";
+
+                        string message = "";
+
+                        Exception x = e;
+                        do {
+                            message += x.Message + "\r\n\r\n";
+                        } while ((x = x.InnerException) != null);
+
+                        await context.Response.WriteAsync(JsonConvert.SerializeObject(new {
+                            code = -1,
+                            message = message.Substring(0, message.Length - 4),
+                            stacktrace = e.StackTrace
+                        }));
+                    }
+                })
                 .UseCors(policy => policy.SetPreflightMaxAge(TimeSpan.FromMinutes(10)).AllowAnyMethod().AllowAnyOrigin().AllowAnyHeader())
                 .UseMvc();
         }
