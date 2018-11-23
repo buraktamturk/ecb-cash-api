@@ -1,11 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
-using System.Threading.Tasks;
 using Europe.CentralBank.CashServer.Controllers;
-using Microsoft.IdentityModel.Tokens;
 
 namespace Europe.CentralBank.CashServer.Utils {
     public class CashValidator {
@@ -43,6 +40,5 @@ namespace Europe.CentralBank.CashServer.Utils {
 
             return str;
         }
-
     }
 }

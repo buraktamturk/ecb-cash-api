@@ -1,10 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using System.Data.Entity;
-using System.Data.Entity.ModelConfiguration.Conventions;
 using System.Linq;
-using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
 
 namespace Europe.CentralBank.CashServer.Models {
     public class cash {
@@ -37,21 +36,18 @@ namespace Europe.CentralBank.CashServer.Models {
 
         public virtual DbSet<cash_invalidation> invalidations { get; set; }
         
-        /* Connection String is for migration purposes only */
-        public ApplicationDbContext() : base("Data Source=localhost;Initial Catalog=ecbcash_test;User Id=ecbcash_test;Password=ecbcash_test") {
+        public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options) {
 
         }
         
-        public ApplicationDbContext(string cstr) : base(cstr) {
-            Configuration.LazyLoadingEnabled = false;
-        }
-
-        protected override void OnModelCreating(DbModelBuilder modelBuilder) {
-            modelBuilder.Conventions.Remove<PluralizingTableNameConvention>();
-            modelBuilder.Conventions.Remove<OneToManyCascadeDeleteConvention>();
-
-            modelBuilder.Properties<string>()
-                .Configure(c => c.HasMaxLength(250).HasColumnType("nvarchar"));
+        protected override void OnModelCreating(ModelBuilder modelBuilder) {
+            foreach (var property in modelBuilder.Model.GetEntityTypes()
+                .SelectMany(t => t.GetProperties())
+                .Where(p => p.ClrType == typeof(string)))
+            {
+                property.AsProperty().Builder
+                    .HasMaxLength(256, ConfigurationSource.Convention);
+            }
 
             modelBuilder
                 .Entity<cash_invalidation>()
@@ -60,13 +56,13 @@ namespace Europe.CentralBank.CashServer.Models {
             modelBuilder
                 .Entity<cash>()
                 .HasMany(a => a.invalidates)
-                .WithRequired()
+                .WithOne(a => a.invalidated_cash)
                 .HasForeignKey(a => a.cash_id);
 
             modelBuilder
                 .Entity<cash>()
                 .HasMany(a => a.invalidated_by)
-                .WithRequired()
+                .WithOne()
                 .HasForeignKey(a => a.invalidated_cash_id);
         }
     }

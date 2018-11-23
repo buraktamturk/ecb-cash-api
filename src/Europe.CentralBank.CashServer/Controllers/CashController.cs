@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Data.Entity;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
@@ -8,6 +7,7 @@ using Europe.CentralBank.CashServer.Models;
 using Europe.CentralBank.CashServer.Utils;
 using LinqKit;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace Europe.CentralBank.CashServer.Controllers {
     public class Cash {
@@ -31,17 +31,18 @@ namespace Europe.CentralBank.CashServer.Controllers {
     }
 
     public class CashController : Controller {
-        private ApplicationDbContext db;
-        private CashValidator cashValidator;
+        private readonly ApplicationDbContext db;
+        private readonly CashValidator cashValidator;
 
         public CashController(ApplicationDbContext db, CashValidator cashValidator) {
             this.db = db;
             this.cashValidator = cashValidator;
         }
 
-        public static Expression<Func<cash, Cash>> cash = a => new Cash {
+        private static Expression<Func<cash, Cash>> cash = a => new Cash {
             id = a.id,
             amount = a.amount,
+            digital = a.digital,
             created_at = a.created_at,
             invalidated_at = a.invalidated_by.Select(b => b.cash.created_at).DefaultIfEmpty().Min()
         };
